@@ -30,8 +30,20 @@ const randomPath = generateRandomString(16);
 const url = `${process.env.WEBHOOK_URL}/${randomPath}`;
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-app.use(bot.webhookCallback(`/${randomPath}`));
-bot.telegram.setWebhook(url);
+async function checkWebhook() {
+  const currentWebhook = await bot.telegram.getWebhookInfo();
+
+  if (currentWebhook.url && currentWebhook.url !== url) {
+    console.log('⚠️ Обнаружен старый вебхук:', currentWebhook.url);
+    await bot.telegram.deleteWebhook();
+    console.log('✅ Старый вебхук удален.');
+  }
+  app.use(bot.webhookCallback(`/${randomPath}`));
+  await bot.telegram.setWebhook(url);
+  console.log('✅ Новый вебхук установлен.');
+}
+
+await checkWebhook();
 
 bot.use(session());
 bot.use(async (ctx, next) => {
