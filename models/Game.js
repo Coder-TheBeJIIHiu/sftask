@@ -7,7 +7,7 @@ const gameSchema = new mongoose.Schema({
   completed: { type: Boolean, default: false }, // Indicates if the process is completed; defaults to false
   startTime: { type: Date, default: Date.now }, // The time when the process started; defaults to now
   task: { type: String, requried: true },
-  code: { type: String, default: randomCode(), unique: true }
+  code: { type: String, default: randomCode() }
 })
 // Export the model
 module.exports = mongoose.model('Game', gameSchema)
