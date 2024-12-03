@@ -24,7 +24,7 @@ menuScene.enter(async (ctx) => {
     await ctx.replyWithHTML(
       `${helloFile}\n\n<code>${randomQuote}</code>`,
       Markup.inlineKeyboard([
-        [Markup.button.callback('sᴇᴀʀᴄʜ 🔍 ', 'random')],
+        [Markup.button.callback('sᴇᴀʀᴄʜ 🔍 ', 'search')],
         [Markup.button.callback('ᴘʀᴏꜰɪʟᴇ 👤', 'profile'), Markup.button.callback('ᴛᴏᴘ 📊', 'top')],
         [Markup.button.callback('ɴᴇᴛᴡᴏʀᴋ ʙᴏᴏsᴛᴇʀ 📈', 'network_booster')],
         [Markup.button.callback('ʜᴏᴡ ᴛᴏ ᴘʟᴀʏ ❓', 'how_to_play')]
@@ -120,5 +120,10 @@ menuScene.action('how_to_play', async (ctx) => {
     ctx.reply('❌ Произошла ошибка при загрузке файла.');
   }
 });
+
+
+menu.action('search', async (ctx) => {
+  ctx.scene.enter('gameScene');
+})
 
 module.exports = menuScene;

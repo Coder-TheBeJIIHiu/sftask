@@ -129,7 +129,8 @@ gameScene.on('text', async (ctx) => {
     const game = ctx.scene.state.game;
 
     if (!game) {
-      return ctx.reply('Нет активной игры.');
+      ctx.reply('Нет активной игры.');
+      ctx.scene.enter('nameScene')
     }
 
     if (inputCode === `code_${game.code}`) {

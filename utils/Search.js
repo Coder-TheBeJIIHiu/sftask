@@ -29,7 +29,7 @@ async function getRandomUser(user) {
         $match: {
           _id: { $ne: userId }, // Исключаем текущего пользователя
           "gameList.isActive": false, // Только с неактивными играми
-          //course: { $in: courseRange }, // Фильтр по курсу
+         course: { $in: courseRange }, // Фильтр по курсу
           gender: oppositeGender, // Фильтр по противоположному полу
         },
       },
