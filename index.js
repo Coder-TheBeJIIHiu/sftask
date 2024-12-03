@@ -42,8 +42,9 @@ async function checkWebhook() {
   await bot.telegram.setWebhook(url);
   console.log('✅ Новый вебхук установлен.');
 }
-
-await checkWebhook();
+(async() => { 
+  await checkWebhook();
+})()
 
 bot.use(session());
 bot.use(async (ctx, next) => {
