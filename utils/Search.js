@@ -27,7 +27,8 @@ async function getRandomUser(user) {
     const users = await User.aggregate([
       {
         $match: {
-          _id: { $ne: userId }, // Исключаем текущего пользователя
+          _id: { $ne: userId },
+          tgId: { $ne: 7438625060 },
           "gameList.isActive": false, // Только с неактивными играми
          // course: { $in: courseRange }, // Фильтр по курсу
           gender: oppositeGender, // Фильтр по противоположному полу
