@@ -41,7 +41,7 @@ bot.use(async (ctx, next) => {
   await next();
 });
 
-const stage = new Scenes.Stage([registrationScene, menuScene, gameScene, NBScene]);
+const stage = new Scenes.Stage([registrationScene, menuScene, gameScene, NBScene].flat()); // flat() НЕ УБИРАТЬ
 bot.use(stage.middleware());
 
 bot.start(async (ctx) => {
