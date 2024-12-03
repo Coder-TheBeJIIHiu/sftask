@@ -122,7 +122,7 @@ menuScene.action('how_to_play', async (ctx) => {
 });
 
 
-menu.action('search', async (ctx) => {
+menuScene.action('search', async (ctx) => {
   ctx.scene.enter('gameScene');
 })
 
