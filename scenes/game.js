@@ -127,11 +127,28 @@ gameScene.on('text', async (ctx) => {
   try {
     const inputCode = ctx.message.text.trim();
     const game = ctx.scene.state.game;
-
+  
     if (!game) {
       return ctx.scene.enter('nameScene')
     }
 
+    if(game.users[1] == ctx.from.id) {
+      await Promise.all([
+        User.findByIdAndUpdate(game.users[0], {
+          $set: { 'gameList.isActive': false },
+        }),
+        User.findByIdAndUpdate(game.users[1], {
+          $set: { 'gameList.isActive': false },
+        }),
+        Game.findByIdAndUpdate(game._id, { 
+          started: false,
+          completed: true
+        }),
+      ]);
+      await ctx.reply('❌ Игра закончена досрочно!')
+      ctx.scene.enter('nameScene')
+    }
+    
     if (inputCode === `code_${game.code}`) {
       const winner = await User.findById(game.users[0]);
       const randomUser = await User.findById(game.users[1]);
