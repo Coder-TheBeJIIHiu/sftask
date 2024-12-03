@@ -15,7 +15,7 @@ const EXP_RANDOM_USER_MULTIPLIER = 0.5; // Множитель опыта для 
 // При входе в игру
 gameScene.enter(async (ctx) => {
   try {
-    const user = ctx.session?.user;
+    const user = User.findOne({ tgId: ctx.from.id });
 
     if (!user) {
       return ctx.reply('Произошла ошибка. Попробуйте позже.');
@@ -65,7 +65,8 @@ gameScene.enter(async (ctx) => {
     // Создаем новую игру
     const newGame = new Game({
       users: [user._id, randomUser._id],
-      task: randomTask
+      task: randomTask,
+      code: crypto.randomInt(100000, 999999)
     })
 
     await newGame.save();

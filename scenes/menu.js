@@ -26,7 +26,7 @@ menuScene.enter(async (ctx) => {
       Markup.inlineKeyboard([
         [Markup.button.callback('sᴇᴀʀᴄʜ 🔍 ', 'search')],
         [Markup.button.callback('ᴘʀᴏꜰɪʟᴇ 👤', 'profile'), Markup.button.callback('ᴛᴏᴘ 📊', 'top')],
-        [Markup.button.callback('ɴᴇᴛᴡᴏʀᴋ ʙᴏᴏsᴛᴇʀ 📈', 'network_booster')],
+        [Markup.button.callback('ɢᴀᴍᴇs 🎰', 'games')],
         [Markup.button.callback('ʜᴏᴡ ᴛᴏ ᴘʟᴀʏ ❓', 'how_to_play')]
       ])
     );
@@ -124,6 +124,36 @@ menuScene.action('how_to_play', async (ctx) => {
 
 menuScene.action('search', async (ctx) => {
   ctx.scene.enter('gameScene');
+})
+
+menuScene.action('games', async (ctx) => {
+  try {
+    const games = await Game.find()
+      .sort({ startTime: -1 }) // Сортировка по дате начала в порядке убывания
+      .limit(10)
+      .populate('users', 'firstName'); // Заполняем массив пользователей (например, только их имя)
+
+    if (games.length === 0) {
+      return ctx.reply('Последние игры отсутствуют.');
+    }
+
+    // Формируем красивый текст для вывода
+    let message = '📋 *Последние 10 игр:*\n\n';
+    games.forEach((game, index) => {
+      const players = game.users.map(user => user.firstname).join(' ищет ') || 'Игроки отсутствуют';
+      message += `*Игра ${index + 1}:*\n` +
+        `- Задача: ${game.task}\n` +
+        `- Код: ${game.code}\n` +
+        `- Время начала: ${new Date(game.startTime).toLocaleString()}\n` +
+        `- Игроки: ${players}\n` +
+        `- Статус: ${game.completed ? 'Завершена' : 'В процессе'}\n\n`;
+    });
+
+    return ctx.replyWithMarkdown(message);
+  } catch (error) {
+    console.error('Ошибка получения игр:', error);
+    return ctx.reply('Произошла ошибка при получении списка игр.');
+  }
 })
 
 module.exports = menuScene;
