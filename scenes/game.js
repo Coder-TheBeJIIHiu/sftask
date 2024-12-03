@@ -146,7 +146,10 @@ gameScene.on('text', async (ctx) => {
           $inc: { exp: expRandomUser },
           $set: { 'gameList.isActive': false },
         }),
-        Game.findByIdAndUpdate(game._id, { completed: true }),
+        Game.findByIdAndUpdate(game._id, { 
+          started: false,
+          completed: true
+        }),
       ]);
 
       await ctx.replyWithHTML(`
