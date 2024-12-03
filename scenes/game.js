@@ -47,8 +47,7 @@ gameScene.enter(async (ctx) => {
         Удачи! 🍀
       `, { parse_mode: 'HTML' });
 
-      ctx.scene.state.game = activeGame;
-      return;
+      return ctx.scene.state.game = activeGame;
     }
 
     // Ищем случайного пользователя для новой игры
@@ -66,12 +65,13 @@ gameScene.enter(async (ctx) => {
     // Создаем новую игру
     const newGame = new Game({
       users: [user._id, randomUser._id],
-      task: randomTask,
-      code: crypto.randomBytes(4).toString('hex'), // Генерируем случайный код
-    });
+      task: randomTask
+    })
 
     await newGame.save();
-
+    await addGame(user._id, newGame._id)
+    await addGame(randomUser._id, newGame._id);
+    
     // Отправляем фото профиля и детали игры
     try {
       const photos = await ctx.telegram.getUserProfilePhotos(randomUser.tgId);
@@ -129,8 +129,7 @@ gameScene.on('text', async (ctx) => {
     const game = ctx.scene.state.game;
 
     if (!game) {
-      ctx.reply('Нет активной игры.');
-      ctx.scene.enter('nameScene')
+      return ctx.scene.enter('nameScene')
     }
 
     if (inputCode === `code_${game.code}`) {
@@ -171,5 +170,18 @@ gameScene.on('text', async (ctx) => {
     ctx.reply('Произошла ошибка. Попробуйте позже.');
   }
 });
+
+// добавляем игру в gameList
+async function addGame(userId, gameId) {
+  try {
+    await User.findByIdAndUpdate(
+      userId,
+      { $push: { 'gameList.gameList': { gameId } } }, // добавляем новый объект в массив
+      { new: true } // вернуть обновленный документ
+    );
+  } catch (err) {
+    console.error('ошибка', err);
+  }
+}
 
 module.exports = gameScene;
