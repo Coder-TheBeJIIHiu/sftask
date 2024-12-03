@@ -2,6 +2,8 @@ const { Scenes, Markup } = require('telegraf');
 const GitHubFileFetcher = require('../utils/GitHubFileFetcher');
 const getTop10WithExp = require('../utils/Top');
 const crypto = require('crypto'); // импорт crypto
+const Game = require('../models/Game');
+const User = require('../models/User');
 
 const fetcher = new GitHubFileFetcher();
 

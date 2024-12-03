@@ -20,11 +20,14 @@ gameScene.enter(async (ctx) => {
     if (!user) {
       return ctx.reply('Произошла ошибка. Попробуйте позже.');
     }
-
+    const lastGameId = await getLastGameId(user._id)
     // Проверяем, есть ли активная игра
-    let activeGame = await Game.findOne({ users: user._id, completed: false });
-
-    if (activeGame) {
+    let activeGame = await Game.findOne({
+      _id: { $in: lastGameId },
+      completed: false,
+    });
+   
+    if (activeGame && user.gameList.isActive) {
       const gameOwner = await User.findById(activeGame.users[0]);
       const randomUser = await User.findById(activeGame.users[1]);
 
@@ -69,9 +72,19 @@ gameScene.enter(async (ctx) => {
       code: crypto.randomInt(100000, 999999)
     })
 
-    await newGame.save();
-    await addGame(user._id, newGame._id)
-    await addGame(randomUser._id, newGame._id);
+    try {
+      await Promise.all([
+        newGame.save(),
+        addGame(user._id, newGame._id),
+        addGame(randomUser._id, newGame._id),
+        User.updateMany(
+          { _id: { $in: [user._id, randomUser._id] } },
+          { $set: { 'gameList.isActive': true } }
+        )
+      ]);
+    } catch (error) {
+      console.error('Ошибка при сохранении игры или обновлении пользователей:', error);
+    }
     
     // Отправляем фото профиля и детали игры
     try {
@@ -110,12 +123,6 @@ gameScene.enter(async (ctx) => {
       Код для завершения игры: 📝 <b>code_${newGame.code}</b>  
       Удачи! 🍀
     `, { parse_mode: 'HTML' });
-
-    await User.updateMany(
-      { _id: { $in: [user._id, randomUser._id] } },
-      { $set: { 'gameList.isActive': true } }
-    );
-
     ctx.scene.state.game = newGame;
   } catch (error) {
     console.error('Ошибка при входе в игру:', error);
@@ -202,6 +209,17 @@ async function addGame(userId, gameId) {
     );
   } catch (err) {
     console.error('ошибка', err);
+  }
+}
+
+async function getLastGameId(userId) {
+  const user = await User.findById(userId).populate('gameList.gameId'); // Популяция игры, если нужно
+  if (user && user.gameList.length > 0) {
+    // Получаем последний элемент в массиве gameList
+    const lastGame = user.gameList[user.gameList.length - 1];
+    return lastGame.gameId; // Возвращаем ID последней игры
+  } else {
+    return null; // Если в списке нет игр
   }
 }
 
