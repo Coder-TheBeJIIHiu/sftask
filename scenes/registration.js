@@ -14,6 +14,9 @@ async function handleRestart(ctx) {
   ctx.scene.enter('nameScene');
 }
 
+// Регулярное выражение для проверки имени/фамилии
+const nameRegex = /^[А-Яа-яҚқҒғҮүҰұӘәӨөІіҺһЁё\s'-]+$/;
+
 // Сцена: ввод имени
 const nameScene = new Scenes.BaseScene('nameScene');
 nameScene.enter(async (ctx) => {
@@ -28,7 +31,16 @@ nameScene.enter(async (ctx) => {
   return ctx.scene.enter('menuScene');
 });
 nameScene.on('text', (ctx) => {
-  ctx.session.registrationData = { firstName: ctx.message.text };
+  const firstName = ctx.message.text.trim();
+
+  if (!nameRegex.test(firstName)) {
+    return ctx.reply(
+      '❗ Имя должно содержать только буквы кириллицы (включая казахский алфавит), пробелы или дефисы.',
+      restartButton
+    );
+  }
+
+  ctx.session.registrationData = { firstName };
   ctx.scene.enter('lastNameScene');
 });
 nameScene.on('message', (ctx) =>
@@ -42,16 +54,25 @@ lastNameScene.enter((ctx) =>
   ctx.reply('😊 Отлично! Теперь введите вашу фамилию:', restartButton)
 );
 lastNameScene.on('text', async (ctx) => {
-  ctx.session.registrationData.lastName = ctx.message.text;
+  const lastName = ctx.message.text.trim();
+
+  if (!nameRegex.test(lastName)) {
+    return ctx.reply(
+      '❗ Фамилия должна содержать только буквы кириллицы (включая казахский алфавит), пробелы или дефисы.',
+      restartButton
+    );
+  }
+
+  ctx.session.registrationData.lastName = lastName;
 
   const user = await User.findOne({
     firstName: ctx.session.registrationData.firstName,
-    lastName: ctx.session.registrationData.lastName
+    lastName: ctx.session.registrationData.lastName,
   });
 
   if (user) {
     ctx.reply('❗ Пользователь с таким ФИ уже существует.');
-    return await handleRestart(ctx)
+    return await handleRestart(ctx);
   }
 
   ctx.scene.enter('ageScene');
@@ -70,11 +91,17 @@ ageScene.on('text', (ctx) => {
   const age = parseInt(ctx.message.text, 10);
 
   if (isNaN(age) || age <= 0) {
-    return ctx.reply('❗ Пожалуйста, введите корректный возраст (число).', restartButton);
+    return ctx.reply(
+      '❗ Пожалуйста, введите корректный возраст (число).',
+      restartButton
+    );
   }
 
   if (age > 21) {
-    return ctx.reply('🚫 Простите, но вам нельзя участвовать. 😢', restartButton);
+    return ctx.reply(
+      '🚫 Простите, но вам нельзя участвовать. 😢',
+      restartButton
+    );
   }
 
   ctx.session.registrationData.age = age;
@@ -99,11 +126,9 @@ genderScene.enter(async (ctx) => {
     Markup.inlineKeyboard([
       [
         Markup.button.callback('🙎‍♂️ Мужской', 'gender_male'),
-       Markup.button.callback('🙎‍♀️ Женский', 'gender_female')
+        Markup.button.callback('🙎‍♀️ Женский', 'gender_female'),
       ],
-      [
-        Markup.button.callback('🔄 Начать заново', 'restart_registration')
-      ],
+      [Markup.button.callback('🔄 Начать заново', 'restart_registration')],
     ])
   );
 });
@@ -125,15 +150,13 @@ courseScene.enter(async (ctx) => {
     Markup.inlineKeyboard([
       [
         Markup.button.callback('1️⃣ 1 курс', 'course_1'),
-        Markup.button.callback('2️⃣ 2 курс', 'course_2')
+        Markup.button.callback('2️⃣ 2 курс', 'course_2'),
       ],
       [
         Markup.button.callback('3️⃣ 3 курс', 'course_3'),
-        Markup.button.callback('4️⃣ 4 курс', 'course_4')
+        Markup.button.callback('4️⃣ 4 курс', 'course_4'),
       ],
-      [
-        Markup.button.callback('🔄 Начать заново', 'restart_registration')
-      ],
+      [Markup.button.callback('🔄 Начать заново', 'restart_registration')],
     ])
   );
 });
@@ -157,15 +180,20 @@ courseScene.action(/^course_(\d)$/, async (ctx) => {
     const usr = await User.findOne({ _id: ref });
     if (usr) {
       await User.findOneAndUpdate(
-        { _id: usr._id }, // Фильтруем по ID пользователя
-        { $push: { joins: newUser._id } }, // Добавляем новый ID в массив friends
-        { new: true } // Возвращаем обновленный документ
-      )
+        { _id: usr._id },
+        { $push: { joins: newUser._id } },
+        { new: true }
+      );
+      await ctx.telegram.sendMessage(
+        usr.tgId,
+        `👤 <a href="tg://user?id=${ctx.from.id}">${lastName} ${firstName}</a> - зарегистрировался новый пользователь с помощью вашей ссылки.`,
+        {
+          parse_mode: 'HTML',
+        }
+      );
     }
-      await ctx.telegram.sendMessage(usr.tgId, `👤 <a href="tg://user?id=${ctx.from.id}">${lastName} ${firstName}</a> - зарегистрировался новый пользователь с помощью вашей ссылки.`, {
-        parse_mode: 'HTML'
-      })
   }
+
   await newUser.save();
   ctx.session.user = newUser;
   ctx.session.registrationData = null;
