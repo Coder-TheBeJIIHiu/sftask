@@ -14,7 +14,6 @@ async function db() {
   try {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('✅ Успешное подключение к базе данных');
-    await bot.launch();
   } catch (error) {
     console.error('❌ Ошибка подключения к базе данных:', error.message);
     console.error(error.stack)
@@ -79,3 +78,9 @@ app.listen(port, async() => {
   console.log(`Server is running on port ${port}`);
   db()
 })
+
+bot.catch((err) => {
+  console.error('Ошибка в обработчике ошибок:', err);
+})
+
+bot.launch();
