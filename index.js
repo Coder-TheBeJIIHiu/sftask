@@ -17,10 +17,11 @@ async function db() {
     await bot.launch();
   } catch (error) {
     console.error('❌ Ошибка подключения к базе данных:', error.message);
-    process.exit(1);
+    console.error(error.stack)
+    //process.exit(1);
   }
 }
-
+]
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
 bot.use(session());
