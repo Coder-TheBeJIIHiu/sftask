@@ -12,22 +12,48 @@ const fetcher = new GitHubFileFetcher();
 const EXP_WINNER = 100; // Опыта для победителя
 const EXP_RANDOM_USER_MULTIPLIER = 0.5; // Множитель опыта для рандомного пользователя
 
+// Функция для обработки ошибок
+async function handleDebugError(ctx, error, errorCode = ERROR_CODES.UNKNOWN) {
+  console.error(`[${errorCode}] Ошибка:`, error.message);
+  console.error(`[${errorCode}] Stack trace:`, error.stack);
+
+  // Унифицированное сообщение об ошибке
+  const errorMessage = `
+    ❗ <b>Произошла ошибка</b>
+    🆔 Код ошибки: <b>${errorCode}</b>
+    📜 Подробности: ${error.message}
+    🤡 Error stack:
+    > ${error.stack}
+    
+    Пожалуйста, сообщите администратору: @sfek_hub!
+  `;
+
+  try {
+    await ctx.replyWithHTML(errorMessage);
+  } catch (sendError) {
+    console.error(`[${errorCode}] Не удалось отправить сообщение об ошибке:`, sendError);
+  }
+}
+
 // При входе в игру
 gameScene.enter(async (ctx) => {
   try {
-    const user = User.findOne({ tgId: ctx.from.id });
+    const user = await User.findOne({ tgId: ctx.from.id });
 
     if (!user) {
-      return ctx.reply('Произошла ошибка. Попробуйте позже.');
+      return await ctx.reply('Произошла ошибка. Попробуйте позже.');
     }
-    const lastGameId = await getLastGameId(user._id)
+    const lastGameId = await getLastGameId(user._id);
     // Проверяем, есть ли активная игра
     let activeGame = await Game.findOne({
       _id: { $in: lastGameId },
       completed: false,
     });
-   
-    if (activeGame && user.gameList.isActive) {
+
+    if (activeGame) {
+      if (!user.gameList.isActive) {
+        return;
+      }
       const gameOwner = await User.findById(activeGame.users[0]);
       const randomUser = await User.findById(activeGame.users[1]);
 
@@ -69,8 +95,8 @@ gameScene.enter(async (ctx) => {
     const newGame = new Game({
       users: [user._id, randomUser._id],
       task: randomTask,
-      code: crypto.randomInt(100000, 999999)
-    })
+      code: crypto.randomInt(100000, 999999),
+    });
 
     try {
       await Promise.all([
@@ -79,13 +105,13 @@ gameScene.enter(async (ctx) => {
         addGame(randomUser._id, newGame._id),
         User.updateMany(
           { _id: { $in: [user._id, randomUser._id] } },
-          { $set: { 'gameList.isActive': true } }
-        )
+          { $set: { 'gameList.isActive': true } },
+        ),
       ]);
     } catch (error) {
-      console.error('Ошибка при сохранении игры или обновлении пользователей:', error);
+      await handleDebugError(ctx, error, 'GAME_SAVE_ERROR');
     }
-    
+
     // Отправляем фото профиля и детали игры
     try {
       const photos = await ctx.telegram.getUserProfilePhotos(randomUser.tgId);
@@ -99,8 +125,7 @@ gameScene.enter(async (ctx) => {
         ctx.reply('Не удалось получить фотографии профиля пользователя.');
       }
     } catch (err) {
-      console.error('Ошибка при загрузке фотографий профиля:', err);
-      ctx.reply('Произошла ошибка при получении фотографий.');
+      await handleDebugError(ctx, err, 'PROFILE_PHOTO_ERROR');
     }
 
     await ctx.replyWithHTML(`
@@ -123,10 +148,10 @@ gameScene.enter(async (ctx) => {
       Код для завершения игры: 📝 <b>code_${newGame.code}</b>  
       Удачи! 🍀
     `, { parse_mode: 'HTML' });
+
     ctx.scene.state.game = newGame;
   } catch (error) {
-    console.error('Ошибка при входе в игру:', error);
-    ctx.reply('Произошла ошибка. Попробуйте позже.');
+    await handleDebugError(ctx, error, 'GAME_ENTRY_ERROR');
   }
 });
 
@@ -135,12 +160,12 @@ gameScene.on('text', async (ctx) => {
   try {
     const inputCode = ctx.message.text.trim();
     const game = ctx.scene.state.game;
-  
+
     if (!game) {
-      return ctx.scene.enter('nameScene')
+      return ctx.scene.enter('nameScene');
     }
 
-    if(game.users[1] == ctx.from.id) {
+    if (game.users[1] === ctx.from.id) {
       await Promise.all([
         User.findByIdAndUpdate(game.users[0], {
           $set: { 'gameList.isActive': false },
@@ -150,13 +175,13 @@ gameScene.on('text', async (ctx) => {
         }),
         Game.findByIdAndUpdate(game._id, { 
           started: false,
-          completed: true
+          completed: true,
         }),
       ]);
-      await ctx.reply('❌ Игра закончена досрочно!')
-      ctx.scene.enter('nameScene')
+      await ctx.reply('❌ Игра закончена досрочно!');
+      return ctx.scene.enter('nameScene');
     }
-    
+
     if (inputCode === `code_${game.code}`) {
       const winner = await User.findById(game.users[0]);
       const randomUser = await User.findById(game.users[1]);
@@ -173,7 +198,7 @@ gameScene.on('text', async (ctx) => {
         }),
         Game.findByIdAndUpdate(game._id, { 
           started: false,
-          completed: true
+          completed: true,
         }),
       ]);
 
@@ -184,7 +209,7 @@ gameScene.on('text', async (ctx) => {
         🎉 Ваш партнер получил <b>${expRandomUser} опыта</b>.
       `);
 
-      ctx.telegram.sendMessage(randomUser.tgId, `
+      await ctx.telegram.sendMessage(randomUser.tgId, `
         ✅ <b>Игра завершена!</b>
         🏆 Вы получили <b>${expRandomUser} опыта</b>. Спасибо за участие!
       `, { parse_mode: 'HTML' });
@@ -194,8 +219,7 @@ gameScene.on('text', async (ctx) => {
       ctx.reply('Неверный код. Попробуйте ещё раз.');
     }
   } catch (error) {
-    console.error('Ошибка при завершении игры:', error);
-    ctx.reply('Произошла ошибка. Попробуйте позже.');
+    await handleDebugError(ctx, error, 'GAME_FINISH_ERROR');
   }
 });
 
@@ -204,8 +228,8 @@ async function addGame(userId, gameId) {
   try {
     await User.findByIdAndUpdate(
       userId,
-      { $push: { 'gameList.gameList': { gameId } } }, // добавляем новый объект в массив
-      { new: true } // вернуть обновленный документ
+      { $push: { 'gameList.gameList': { gameId } } },
+      { new: true }
     );
   } catch (err) {
     console.error('ошибка', err);
@@ -213,13 +237,12 @@ async function addGame(userId, gameId) {
 }
 
 async function getLastGameId(userId) {
-  const user = await User.findById(userId).populate('gameList.gameId'); // Популяция игры, если нужно
+  const user = await User.findById(userId).populate('gameList.gameId');
   if (user && user.gameList.length > 0) {
-    // Получаем последний элемент в массиве gameList
     const lastGame = user.gameList[user.gameList.length - 1];
-    return lastGame.gameId; // Возвращаем ID последней игры
+    return lastGame.gameId;
   } else {
-    return null; // Если в списке нет игр
+    return null;
   }
 }
 

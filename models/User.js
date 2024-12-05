@@ -34,6 +34,10 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  instagram: {
+    type: String,
+    default: null
+  },
   gameList: {
     isActive: {
       type: Boolean,
