@@ -19,8 +19,8 @@ async function handleDebugError(ctx, error, errorCode = ERROR_CODES.UNKNOWN) {
 
   // Унифицированное сообщение об ошибке
   const errorMessage = `
-    ❗ <b>Произошла ошибка</b>
-    🆔 Код ошибки: <b>${errorCode}</b>
+    ❗ Произошла ошибка
+    🆔 Код ошибки: ${errorCode}
     📜 Подробности: ${error.message}
     🤡 Error stack:
     > ${error.stack}
@@ -29,7 +29,7 @@ async function handleDebugError(ctx, error, errorCode = ERROR_CODES.UNKNOWN) {
   `;
 
   try {
-    await ctx.replyWithHTML(errorMessage);
+    await ctx.reply(errorMessage);
   } catch (sendError) {
     console.error(`[${errorCode}] Не удалось отправить сообщение об ошибке:`, sendError);
   }
@@ -237,9 +237,9 @@ async function addGame(userId, gameId) {
 }
 
 async function getLastGameId(userId) {
-  const user = await User.findById(userId).populate('gameList.gameId');
-  if (user && user.gameList.length > 0) {
-    const lastGame = user.gameList[user.gameList.length - 1];
+  const user = await User.findById(userId)
+  if (user && user.gameList.gameList.length > 0) {
+    const lastGame = user.gameList[user.gameList.gameList.length - 1];
     return lastGame.gameId;
   } else {
     return null;
