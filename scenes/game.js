@@ -54,6 +54,49 @@ gameScene.enter(async (ctx) => {
       if (!user.gameList.isActive) {
         return;
       }
+
+      const game = activeGame;
+      const fiveMinutesLater = new Date(activeGame.startTime.getTime() + 5 * 60 * 1000)
+      
+      if (Date.now() > fiveMinutesLater) {
+        // Завершаем игру досрочно
+        await Game.findByIdAndUpdate(game._id, { 
+          completed: true,
+          started: false,
+        });
+
+        // Обновляем статус игроков
+        await Promise.all([
+            User.findByIdAndUpdate(game.users[0], { $set: { 'gameList.isActive': false } }),
+            User.findByIdAndUpdate(game.users[1], { $set: { 'gameList.isActive': false } }),
+        ]);
+
+          // Получаем информацию об игроках
+        const [user1, user2] = await Promise.all([
+          User.findById(game.users[0]),
+          User.findById(game.users[1]),
+        ]);
+
+          // Уведомляем игроков и раскрываем код
+        const message = `
+            ❌ <b>Игра завершена досрочно из-за неактивности.</b>
+
+            🔓 <b>Информация об участниках:</b>
+            👤 Игрок 1: <b>${user1.lastName} ${user1.firstName}</b>
+            👤 Игрок 2: <b>${user2.lastName} ${user2.firstName}</b>
+
+            📝 <b>Код игры:</b> <code>${game.code}</code>
+          `;
+
+        await Promise.all([
+            ctx.telegram.sendMessage(user1.tgId, message, { parse_mode: 'HTML' }),
+            ctx.telegram.sendMessage(user2.tgId, message, { parse_mode: 'HTML' }),
+          ]);
+
+          // Завершаем сцену
+        return ctx.scene.enter('nameScene');
+      }
+      
       const gameOwner = await User.findById(activeGame.users[0]);
       const randomUser = await User.findById(activeGame.users[1]);
 
@@ -78,7 +121,7 @@ gameScene.enter(async (ctx) => {
 
       return ctx.scene.state.game = activeGame;
     }
-
+    
     // Ищем случайного пользователя для новой игры
     const randomUser = await search(user);
 
@@ -97,9 +140,10 @@ gameScene.enter(async (ctx) => {
       task: randomTask,
       code: crypto.randomInt(100000, 999999),
     });
-
+   
     try {
       await Promise.all([
+        clearTimeout(ctx.session.timeout),
         newGame.save(),
         addGame(user._id, newGame._id),
         addGame(randomUser._id, newGame._id),
@@ -150,6 +194,50 @@ gameScene.enter(async (ctx) => {
     `, { parse_mode: 'HTML' });
 
     ctx.scene.state.game = newGame;
+    
+    // Устанавливаем новый таймер
+    ctx.session.timeout = setTimeout(async () => {
+      const game = ctx.scene.state.game;
+      
+      if (game && !game.completed) {
+        // Завершаем игру досрочно
+        await Game.findByIdAndUpdate(game._id, { 
+          completed: true,
+          started: false,
+        });
+
+        // Обновляем статус игроков
+        await Promise.all([
+            User.findByIdAndUpdate(game.users[0], { $set: { 'gameList.isActive': false } }),
+            User.findByIdAndUpdate(game.users[1], { $set: { 'gameList.isActive': false } }),
+        ]);
+
+          // Получаем информацию об игроках
+        const [user1, user2] = await Promise.all([
+          User.findById(game.users[0]),
+          User.findById(game.users[1]),
+        ]);
+
+          // Уведомляем игроков и раскрываем код
+        const message = `
+            ❌ <b>Игра завершена досрочно из-за неактивности.</b>
+
+            🔓 <b>Информация об участниках:</b>
+            👤 Игрок 1: <b>${user1.lastName} ${user1.firstName}</b>
+            👤 Игрок 2: <b>${user2.lastName} ${user2.firstName}</b>
+
+            📝 <b>Код игры:</b> <code>${game.code}</code>
+          `;
+
+        await Promise.all([
+            ctx.telegram.sendMessage(user1.tgId, message, { parse_mode: 'HTML' }),
+            ctx.telegram.sendMessage(user2.tgId, message, { parse_mode: 'HTML' }),
+          ]);
+
+          // Завершаем сцену
+        return ctx.scene.enter('nameScene');
+      }
+    }, 5 * 60 * 1000); // 5 минут
   } catch (error) {
     await handleDebugError(ctx, error, 'GAME_ENTRY_ERROR');
   }
