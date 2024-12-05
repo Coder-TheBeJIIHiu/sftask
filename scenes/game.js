@@ -211,7 +211,7 @@ gameScene.on('text', async (ctx) => {
 
       await ctx.telegram.sendMessage(randomUser.tgId, `
         ✅ <b>Игра завершена!</b>
-        🏆 Вы получили <b>${expRandomUser} опыта</b>. Спасибо за участие!
+        🏆 Вы получили <b>${expRandomUser} опыта</b>. Спасибо за участие! (Напишите /start, чтобы попасть в меню)
       `, { parse_mode: 'HTML' });
 
       ctx.scene.enter('nameScene');

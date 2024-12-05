@@ -2,6 +2,8 @@ const { Scenes, Markup } = require('telegraf');
 const GitHubFileFetcher = require('../utils/GitHubFileFetcher');
 const getTop10WithExp = require('../utils/Top');
 const crypto = require('crypto'); // импорт crypto
+const os = require('os'); // импорт модуля os
+
 const Game = require('../models/Game');
 const User = require('../models/User');
 
@@ -28,7 +30,8 @@ menuScene.enter(async (ctx) => {
       Markup.inlineKeyboard([
         [Markup.button.callback('sᴇᴀʀᴄʜ 🔍 ', 'search')],
         [Markup.button.callback('ᴘʀᴏꜰɪʟᴇ 👤', 'profile'), Markup.button.callback('ᴛᴏᴘ 📊', 'top')],
-        [Markup.button.callback('ɢᴀᴍᴇs 🎰', 'games')],
+        [Markup.button.callback('ɢᴀᴍᴇs 🎰', 'games'),
+        Markup.button.callback('ʙᴏᴛ sᴛᴀᴛs', 'botstats')],
         [Markup.button.callback('ʜᴏᴡ ᴛᴏ ᴘʟᴀʏ ❓', 'how_to_play')]
       ])
     );
@@ -142,7 +145,7 @@ menuScene.action('games', async (ctx) => {
     // Формируем красивый текст для вывода
     let message = '📋 *Последние 10 игр:*\n\n';
     games.forEach((game, index) => {
-      const players = game.users.map(user => user.firstname).join(' ищет ') || 'Игроки отсутствуют';
+      const players = game.users.map(user => user.firstName).join(' ищет ') || 'Игроки отсутствуют';
       message += `*Игра ${index + 1}:*\n` +
         `- Задача: ${game.task}\n` +
         `- Код: ${game.code}\n` +
@@ -155,6 +158,108 @@ menuScene.action('games', async (ctx) => {
   } catch (error) {
     console.error('Ошибка получения игр:', error);
     return ctx.reply('Произошла ошибка при получении списка игр.');
+  }
+})
+
+menuScene.action('botstats', async (ctx) => {
+  try {
+    const getInfoSafely = async (fn, defaultValue) => {
+      try {
+        return await fn();
+      } catch (err) {
+        console.error(`Ошибка при выполнении функции: ${err.message}`);
+        return defaultValue;
+      }
+    };
+
+    const uptime = process.uptime();
+    const memoryUsage = process.memoryUsage();
+
+    // Получаем данные безопасно
+    const totalUsers = await getInfoSafely(() => User.countDocuments(), 'Не удалось получить данные');
+    const activeUsersLast24h = await getInfoSafely(() =>
+      User.countDocuments({
+        lastActive: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      }),
+      'Не удалось получить данные'
+    );
+
+    const webhookInfo = await getInfoSafely(() => bot.telegram.getWebhookInfo(), {});
+    const webhookStatus = webhookInfo.url ? 'Активен' : 'Неактивен';
+    const webhookUrl = webhookInfo.url || 'Не задан';
+    const webhookPendingUpdates = webhookInfo.pending_update_count || 'Неизвестно';
+
+    const totalGames = await getInfoSafely(() => Game.countDocuments(), 'Не удалось получить данные');
+    const activeGames = await getInfoSafely(() =>
+      Game.find({ started: true, completed: false }),
+      []
+    );
+    const completedGames = await getInfoSafely(() => Game.find({ completed: true }), []);
+
+    const activeGamesInfo = activeGames.map((game) => {
+      const users = game.users.length;
+      const startTime = new Date(game.startTime).toLocaleString();
+      return `- Код: ${game.code}, Пользователи: ${users}, Старт: ${startTime}`;
+    }).join('\n') || 'Нет активных игр';
+
+    const longestGame = completedGames.sort((a, b) =>
+      (new Date(b.endTime) - new Date(b.startTime)) -
+      (new Date(a.endTime) - new Date(a.startTime))
+    )[0];
+
+    const avgPlayersPerGame = completedGames.length > 0
+      ? completedGames.reduce((sum, game) => sum + game.users.length, 0) / completedGames.length
+      : 'Недоступно';
+
+    // Системная информация
+    const totalMemory = (os.totalmem() / 1024 / 1024).toFixed(2);
+    const freeMemory = (os.freemem() / 1024 / 1024).toFixed(2);
+    const cpuUsage = os.loadavg().map(avg => avg.toFixed(2)).join(' / ');
+
+    // Форматирование времени работы
+    const seconds = Math.floor(uptime % 60);
+    const minutes = Math.floor((uptime / 60) % 60);
+    const hours = Math.floor((uptime / 3600) % 24);
+    const days = Math.floor(uptime / 86400);
+
+    // Сбор информации
+    const info = `
+  📊 *Детальная информация о боте:*
+
+  🕒 *Время работы:* ${days} дней, ${hours} часов, ${minutes} минут, ${seconds} секунд
+  👥 *Общее количество пользователей:* ${totalUsers}
+  👤 *Активных за 24 часа:* ${activeUsersLast24h}
+
+  🎮 *Игры:*
+  - *Всего игр:* ${totalGames}
+  - *Активных:* ${activeGames.length}
+  - *Завершенных:* ${completedGames.length}
+  - *Самая долгая игра:* ${longestGame ? `${longestGame.code}, длительность: ${(new Date(longestGame.endTime) - new Date(longestGame.startTime)) / 60000} минут` : 'Нет данных'}
+  - *Среднее количество игроков:* ${avgPlayersPerGame}
+
+  ${activeGames.length ? `📋 *Информация об активных играх:*\n${activeGamesInfo}` : ''}
+
+  ⚙️ *Системная информация:*
+  - *Память:* ${freeMemory} MB свободно из ${totalMemory} MB
+  - *Средняя нагрузка (1/5/15 мин):* ${cpuUsage}
+  - *Использование памяти процесса:*
+    - RSS: ${(memoryUsage.rss / 1024 / 1024).toFixed(2)} MB
+    - Heap Total: ${(memoryUsage.heapTotal / 1024 / 1024).toFixed(2)} MB
+    - Heap Used: ${(memoryUsage.heapUsed / 1024 / 1024).toFixed(2)} MB
+
+  🌐 *Информация о вебхуке:*
+  - *Статус:* ${webhookStatus}
+  - *URL:* ${webhookUrl}
+  - *Ожидающие обновления:* ${webhookPendingUpdates}
+
+  🕰️ *Время сервера:* ${new Date().toLocaleString()}
+  `;
+
+    // Отправка ответа
+    await ctx.replyWithMarkdown(info);
+  } catch (error) {
+    console.error('Ошибка в команде /uptime:', error);
+    ctx.reply('⚠️ Произошла ошибка при выполнении команды /uptime. Попробуйте позже.');
   }
 })
 
