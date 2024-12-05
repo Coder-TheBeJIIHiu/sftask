@@ -13,7 +13,7 @@ const EXP_WINNER = 100; // Опыта для победителя
 const EXP_RANDOM_USER_MULTIPLIER = 0.5; // Множитель опыта для рандомного пользователя
 
 // Функция для обработки ошибок
-async function handleDebugError(ctx, error, errorCode = ERROR_CODES.UNKNOWN) {
+async function handleDebugError(ctx, error, errorCode = 'UNKNOWN') {
   console.error(`[${errorCode}] Ошибка:`, error.message);
   console.error(`[${errorCode}] Stack trace:`, error.stack);
 
