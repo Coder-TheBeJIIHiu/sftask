@@ -327,7 +327,7 @@ async function addGame(userId, gameId) {
 async function getLastGameId(userId) {
   const user = await User.findById(userId)
   if (user && user.gameList.gameList.length > 0) {
-    const lastGame = user.gameList[user.gameList.gameList.length - 1];
+    const lastGame = user.gameList.gameList[user.gameList.gameList.length - 1];
     return lastGame.gameId;
   } else {
     return null;
